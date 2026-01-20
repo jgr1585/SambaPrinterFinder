@@ -13,7 +13,7 @@ TODO: Provide pre-built binaries or package instructions. Currently, you need to
 ## Build requirements
 You need to have the following dependencies installed on your system:
 - Rust (latest stable version)
-- GTK4 development libraries (https://gtk-rs.org/gtk4-rs/stable/latest/book/installation_linux.html)
+- GTK4 development libraries (https://gtk-rs.org/gtk4-rs/stable/latest/book/installation.html)
 - CUPS development libraries
 - Samba development libraries
 
