@@ -12,6 +12,7 @@ use glib::clone;
 use gtk::gio::ListStore;
 use gtk::{prelude::*, Align, Button, Entry, Grid, Label, Orientation, PasswordEntry, Window};
 use oneshot::channel;
+use url::Url;
 
 pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_state: Rc<RefCell<Option<Rc<SambaConnection>>>>) {
     let dialog = Window::builder()
@@ -140,18 +141,22 @@ pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_s
             server = format!("smb://{}", server);
         }
 
+        let server_url = Url::parse(&server).expect("Invalid SMB URL");
+
         match SambaConnection::connect(creds) {
             Ok(conn) => {
 
                 let conn_rc = Rc::new(conn);
                 *smb_state.borrow_mut() = Some(conn_rc.clone());
 
-                match conn_rc.list_directory(&server) {
+                match conn_rc.list_directory(&server_url) {
                     Ok(entries) => {
                         for entry in entries {
-                            let server_path = format!("{server}/{}", &entry.name);
-                            let obj = SambaEntryObject::new(entry, server_path);
-                            list_store.append(&obj);
+                            let sever_url = server_url.join(&entry.name).ok();
+                            if sever_url.is_some() {
+                                let obj = SambaEntryObject::new(entry, sever_url.unwrap());
+                                list_store.append(&obj);
+                            }
                         }
                     }
                     Err(e) => eprintln!("Error listing directory: {}", e),

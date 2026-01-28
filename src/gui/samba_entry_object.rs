@@ -1,19 +1,21 @@
 use std::clone::Clone;
 use std::string::{String, ToString};
 use glib::subclass::prelude::ObjectSubclassIsExt;
+use url::Url;
 use crate::smb::{SambaDirectoryEntry, SambaEntryType};
 
 mod imp {
     use gtk::glib::subclass::prelude::*;
     use std::cell::RefCell;
     use std::string::String;
+    use url::Url;
     use crate::smb::SambaEntryType;
 
     #[derive(Default)]
     pub struct SambaEntryObject {
         pub name: RefCell<String>,
         pub entry_type: RefCell<SambaEntryType>,
-        pub server_path: RefCell<String>,
+        pub server_path: RefCell<Option<Url>>,
     }
 
     #[glib::object_subclass]
@@ -30,11 +32,12 @@ glib::wrapper! {
 }
 
 impl SambaEntryObject {
-    pub fn new(entry: SambaDirectoryEntry, server_path: String) -> Self {
+    pub fn new(entry: SambaDirectoryEntry, server_path: Url) -> Self {
         let obj: Self = glib::Object::new();
         obj.imp().name.replace(entry.name);
         obj.imp().entry_type.replace(entry.entry_type);
-        obj.imp().server_path.replace(server_path);
+        obj.imp().server_path.replace(Some(server_path));
+
         obj
     }
 
@@ -46,7 +49,7 @@ impl SambaEntryObject {
         (*self.imp().entry_type.borrow()).clone()
     }
 
-    pub fn server_path(&self) -> String {
-        self.imp().server_path.borrow().to_string()
+    pub fn server_path(&self) -> Option<Url> {
+        self.imp().server_path.borrow().clone()
     }
 }

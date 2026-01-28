@@ -14,7 +14,7 @@ mod ipp_operations;
 mod ipp_tag;
 mod ipp_status;
 
-pub fn connect_to_printer(creds: SambaCredentials, url: String, printer_name: String) {
+pub fn connect_to_printer(creds: SambaCredentials, url: Url, printer_name: String) {
     let cups_server = cups_server().unwrap_or(String::new());
     let ipp_port = ipp_port();
 
@@ -36,7 +36,7 @@ pub fn connect_to_printer(creds: SambaCredentials, url: String, printer_name: St
     }
 
     let request = ipp_new_request(CupsAddModifyPrinter);
-    let mut smb_printer_uri = Url::parse(&*url).expect("Smbc was not parseable");
+    let mut smb_printer_uri = url;
 
     smb_printer_uri
         .set_username(&*creds.username)

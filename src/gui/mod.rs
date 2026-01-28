@@ -2,12 +2,7 @@ mod samba_entry_object;
 mod smb_login_dialog;
 
 use std::cell::RefCell;
-use std::clone::Clone;
-use std::option::Option;
-use std::option::Option::{None, Some};
-use std::prelude::v1::{Err, Ok};
 use std::rc::Rc;
-
 use crate::gui::samba_entry_object::SambaEntryObject;
 use crate::smb::{SambaConnection, SambaEntryType};
 use glib::{clone, MainContext, Propagation};
@@ -39,10 +34,19 @@ pub fn build_ui(application: &Application) {
             let li = list_item.clone();
             let smb_state_cl = smb_state.clone();
             let list_store_cl = list_store.clone();
+            
             gesture.connect_pressed(move |_gesture, n_press, _x, _y| {
                 if n_press == 2 {
                     if let Some(entry) = li.item().and_downcast::<SambaEntryObject>() {
                         let server = entry.server_path();
+                        let server = match server {
+                            Some(s) => s,
+                            None => {
+                                eprintln!("No server path found for this entry");
+                                return;
+                            }
+                        };
+                        
                         println!("Clicked entry: {}", server);
 
                         match entry.entry_type() {
@@ -52,7 +56,10 @@ pub fn build_ui(application: &Application) {
                                         Ok(entries) => {
                                             list_store_cl.remove_all();
                                             for entry in entries {
-                                                let server_path = format!("{server}/{}", &entry.name);
+                                                let server_path = server
+                                                    .join(&entry.name)
+                                                    .expect("Failed to join paths {} and {}");
+                                                
                                                 let obj = SambaEntryObject::new(entry, server_path);
                                                 list_store_cl.append(&obj);
                                             }
@@ -77,7 +84,7 @@ pub fn build_ui(application: &Application) {
                             _ => {}
                         }
                     } else {
-                        println!("Kein Model-Item gefunden für diese Zeile");
+                        println!("No model item found for this row");
                     }
                 }
             });
@@ -164,6 +171,7 @@ pub fn build_ui(application: &Application) {
         if let Some(app) = window.application() {
             app.remove_window(window);
         }
+        
         Propagation::Proceed
     });
 

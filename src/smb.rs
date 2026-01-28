@@ -9,6 +9,7 @@ use std::string::{String, ToString};
 use std::sync::Mutex;
 use std::vec::Vec;
 use libc::{c_int};
+use url::Url;
 
 #[repr(C)]
 pub struct SMBCCTX {
@@ -131,7 +132,7 @@ impl SambaConnection {
         }
     }
 
-    pub fn list_directory(&self, path: &str) -> Result<Vec<SambaDirectoryEntry>> {
+    pub fn list_directory(&self, path: &Url) -> Result<Vec<SambaDirectoryEntry>> {
         let mut entries: Vec<SambaDirectoryEntry> = Vec::new();
 
         unsafe {
@@ -139,7 +140,7 @@ impl SambaConnection {
             smbc_set_context(self.ctx);
 
             // convert Rust &str to a null-terminated C string
-            let c_path = CString::new(path).map_err(|_| {
+            let c_path = CString::new(path.as_str()).map_err(|_| {
                 Error::new(ErrorKind::InvalidInput, "path contains interior NUL byte")
             })?;
 
