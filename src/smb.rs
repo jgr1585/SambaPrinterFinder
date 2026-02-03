@@ -109,7 +109,7 @@ impl SambaConnection {
                 return Err(Error::new(ErrorKind::Other, "Failed to create SMB context"));
             }
 
-            // sichere Initialisierung der globalen Credentials
+            // Store credentials in the global variable for the auth callback
             {
                 let mut g = CREDENTIALS.lock().unwrap();
                 *g = credentials.clone();

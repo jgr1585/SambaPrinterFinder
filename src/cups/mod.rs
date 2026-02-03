@@ -1,22 +1,21 @@
+mod c_interop;
+mod ipp;
+mod ipp_attribute;
+mod enums;
+
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use crate::cups::c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_add_string, ipp_delete, ipp_first_attribute, ipp_get_group_tag, ipp_get_name, ipp_get_string, ipp_new_request, ipp_next_attribute, ipp_port, HttpT, IppT};
-use crate::cups::http_encryption::HttpEncryption;
-use crate::cups::ipp_operations::IppOp::CupsAddModifyPrinter;
-use crate::cups::ipp_status::IppStatus::OkEventsComplete;
-use crate::cups::ipp_tag::IPPTag;
-use crate::cups::protocol_families::PF;
+use c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_port, HttpT};
+use enums::http_encryption::HttpEncryption;
+use enums::ipp_operations::IppOp::CupsAddModifyPrinter;
+use enums::ipp_status::IppStatus::OkEventsComplete;
+use enums::ipp_tag::IPPTag;
+use enums::protocol_families::PF;
 use url::Url;
-use crate::cups::ipp_operations::IppOp;
+use ipp::Ipp;
+use enums::ipp_operations::IppOp;
 use crate::gui::printer_setup_dialog::PrinterManufacturer;
 use crate::smb::SambaCredentials;
-
-mod c_interop;
-mod protocol_families;
-mod http_encryption;
-mod ipp_operations;
-mod ipp_tag;
-mod ipp_status;
 
 #[derive(Debug, Clone)]
 pub(crate) struct CupsManager {
@@ -61,7 +60,7 @@ impl CupsManager {
     }
 
     pub fn connect_to_printer(&self, creds: SambaCredentials, url: Url, printer_name: String) {
-        let request = ipp_new_request(CupsAddModifyPrinter);
+        let request = Ipp::new(CupsAddModifyPrinter);
         let mut smb_printer_uri = url;
 
         smb_printer_uri
@@ -72,10 +71,10 @@ impl CupsManager {
             .set_password(Option::from(&*creds.password))
             .expect("Unable to set password");
 
-        ipp_add_string(request, IPPTag::Operation, IPPTag::Uri,
-                       Option::from("printer-uri"), None, &*("ipp://localhost/printers/".to_owned() + &printer_name));
+        request.add_string(IPPTag::Operation, IPPTag::Uri,
+                           Option::from("printer-uri"), None, &*("ipp://localhost/printers/".to_owned() + &printer_name));
 
-        ipp_add_string(request, IPPTag::Printer, IPPTag::Uri,
+        request.add_string(IPPTag::Printer, IPPTag::Uri,
                        Option::from("device-uri"), None,
                        &smb_printer_uri.to_string());
 
@@ -83,15 +82,16 @@ impl CupsManager {
         //                 Option::from("ppd-name"), None, "everywhere");
 
 
-        let response = cups_do_request(self.http_t, request, "/admin/");
+        let response = cups_do_request(self.http_t, request.into_raw(), "/admin/");
+
+        let _response = response
+            .and_then(Ipp::from_raw);
 
         if cups_last_error() > OkEventsComplete {
             eprintln!("CUPS Error: {:?}", cups_last_error_string());
         } else {
             println!("Printer added/modified successfully.");
         }
-
-        ipp_delete(response);
     }
 
     pub fn get_printer_manufacturers(&self) -> Vec<PrinterManufacturer> {
@@ -117,57 +117,66 @@ impl CupsManager {
     }
 
     fn fetch_ppds(&mut self) -> bool {
-        let request = ipp_new_request(IppOp::CupsGetPpds);
+        let request = Ipp::new(IppOp::CupsGetPpds);
 
-        ipp_add_string(request, IPPTag::Operation, IPPTag::Uri, Option::from("printer-uri"),
+        request.add_string(IPPTag::Operation, IPPTag::Uri, Option::from("printer-uri"),
                        None, "ipp://localhost/",
         );
 
-        let response = cups_do_request(self.http_t, request, "/");
+        let response = cups_do_request(self.http_t, request.into_raw(), "/");
 
         if response.is_none() {
             eprintln!("CUPS request failed");
             return false;
         }
 
-        self.parse_response(response);
+        let mut response = match response.and_then(Ipp::from_raw) {
+            Some(res) => res,
+            None => {
+                eprintln!("CUPS request failed");
+                return false;
+            }
+        };
 
-        ipp_delete(response);
+        self.parse_response(&mut response);
+
         true
     }
 
-    fn parse_response(&mut self, response: Option<*mut IppT>) {
+    fn parse_response(&mut self, response: &mut Ipp) {
         let mut current = PpdInfo::default();
 
-        let mut attr = ipp_first_attribute(response);
-        while !attr.is_none() {
-            if ipp_get_group_tag(attr) == IPPTag::Printer {
-                let name_ptr = ipp_get_name(attr);
-                if !name_ptr.is_none() {
-                    let attr_name = name_ptr.unwrap();
+        let mut attr = response.get_first_attribute();
+        while let Some(attr_ptr) = attr {
+            let attr_ref = unsafe { attr_ptr.as_mut() };
+            if let Some(attr_ref) = attr_ref {
+                if attr_ref.get_group_tag() == IPPTag::Printer {
+                    let name_ptr = attr_ref.get_name();
+                    if let Some(attr_name) = name_ptr {
 
-                    match attr_name.as_str() {
-                        "ppd-name" => {
-                            current = PpdInfo::default();
-                            current.name = ipp_get_string(attr,0).unwrap_or_default();
+                        match attr_name.as_str() {
+                            "ppd-name" => {
+                                current = PpdInfo::default();
+                                current.name = attr_ref.get_string().unwrap_or_default();
+                            }
+                            "ppd-make-and-model" => {
+                                current.make_and_model = attr_ref.get_string().unwrap_or_default();
+                            }
+                            "ppd-make" => {
+                                current.make = attr_ref.get_string().unwrap_or_default();
+                            }
+                            "ppd-product" => {
+                                current.product = attr_ref.get_string().unwrap_or_default();
+                                // Treat this as end of record
+                                self.ppds.push(current.clone());
+                            }
+                            _ => {}
                         }
-                        "ppd-make-and-model" => {
-                            current.make_and_model = ipp_get_string(attr, 0).unwrap_or_default();
-                        }
-                        "ppd-make" => {
-                            current.make = ipp_get_string(attr, 0).unwrap_or_default();
-                        }
-                        "ppd-product" => {
-                            current.product = ipp_get_string(attr, 0).unwrap_or_default();
-                            // Treat this as end of record
-                            self.ppds.push(current.clone());
-                        }
-                        _ => {}
                     }
                 }
             }
 
-            attr = ipp_next_attribute(response);
+            attr = response.get_next_attribute();
         }
     }
 }
