@@ -54,6 +54,15 @@ unsafe extern "C" {
     fn cupsLastErrorString() -> *const c_char;
     fn ippDelete(ipp: *mut IppT);
     fn httpClose(http: *mut HttpT);
+    fn ippFirstAttribute(ipp: *mut IppT) -> *mut IppAttributeT;
+    fn ippNextAttribute(ipp: *mut IppT) -> *mut IppAttributeT;
+    fn ippGetName(attr: *mut IppAttributeT) -> *const c_char;
+    fn ippGetGroupTag(attr: *mut IppAttributeT) -> IPPTag;
+    fn ippGetString(
+        attr: *mut IppAttributeT,
+        element: c_int,
+        c_char: *mut c_char
+    ) -> *const c_char;
 }
 
 pub fn cups_server() -> Option<String> {
@@ -143,7 +152,7 @@ pub fn ipp_add_string(
 }
 
 pub fn cups_do_request(
-    http: Option<*mut HttpT>,
+    http: *mut HttpT,
     request: Option<*mut IppT>,
     resource: &str,
 ) -> Option<*mut IppT> {
@@ -151,7 +160,7 @@ pub fn cups_do_request(
 
     let res = unsafe {
         cupsDoRequest(
-            http.unwrap_or(null_mut()),
+            http,
             request.unwrap_or(null_mut()),
             c_resource.as_ptr(),
         )
@@ -181,10 +190,49 @@ pub fn ipp_delete(ipp: Option<*mut IppT>) {
     }
 }
 
-pub fn http_close(http: Option<*mut HttpT>) {
-    if let Some(http_ptr) = http {
-        unsafe {
-            httpClose(http_ptr);
-        }
+pub fn http_close(http: *mut HttpT) {
+    unsafe {
+        httpClose(http);
     }
+}
+
+pub fn ipp_first_attribute(ipp: Option<*mut IppT>) -> Option<*mut IppAttributeT> {
+    let res = unsafe { ippFirstAttribute(ipp.unwrap_or(null_mut())) };
+    if res.is_null() {
+        None
+    } else {
+        Some(res)
+    }
+}
+
+pub fn ipp_next_attribute(ipp: Option<*mut IppT>) -> Option<*mut IppAttributeT> {
+    let res = unsafe { ippNextAttribute(ipp.unwrap_or(null_mut())) };
+    if res.is_null() {
+        None
+    } else {
+        Some(res)
+    }
+}
+
+pub fn ipp_get_group_tag(attr: Option<*mut IppAttributeT>) -> IPPTag {
+    unsafe { ippGetGroupTag(attr.unwrap_or(null_mut())) }
+}
+
+pub fn ipp_get_string(
+    attr: Option<*mut IppAttributeT>,
+    element: i32,
+) -> Option<String> {
+    let res_ptr = unsafe {
+        ippGetString(
+            attr.unwrap_or(null_mut()),
+            element as c_int, null_mut(),
+        )
+    };
+
+    c_str_to_string(res_ptr)
+}
+
+pub fn ipp_get_name(attr: Option<*mut IppAttributeT>) -> Option<String> {
+    let name_ptr = unsafe { ippGetName(attr.unwrap_or(null_mut())) };
+    c_str_to_string(name_ptr)
 }

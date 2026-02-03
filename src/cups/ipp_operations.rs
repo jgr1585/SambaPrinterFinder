@@ -110,6 +110,7 @@ pub enum IppOp {
     CupsGetPrinters,                 // CUPS-Get-Printers: Get a list of printers and/or classes
     CupsAddModifyPrinter,            // CUPS-Add-Modify-Printer: Add or modify a printer
     CupsDeletePrinter,               // CUPS-Delete-Printer: Delete a printer
+    CupsGetClasses,                  // CUPS-Get-Classes: Get a list of classes @deprecated@ @exclude all@
     CupsAddModifyClass,              // CUPS-Add-Modify-Class: Add or modify a class
     CupsDeleteClass,                 // CUPS-Delete-Class: Delete a class
     CupsAcceptJobs,                  // CUPS-Accept-Jobs: Accept new jobs on a printer @exclude all@

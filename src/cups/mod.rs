@@ -1,10 +1,14 @@
-use crate::cups::c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_add_string, ipp_delete, ipp_new_request, ipp_port};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use crate::cups::c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_add_string, ipp_delete, ipp_first_attribute, ipp_get_group_tag, ipp_get_name, ipp_get_string, ipp_new_request, ipp_next_attribute, ipp_port, HttpT, IppT};
 use crate::cups::http_encryption::HttpEncryption;
 use crate::cups::ipp_operations::IppOp::CupsAddModifyPrinter;
 use crate::cups::ipp_status::IppStatus::OkEventsComplete;
 use crate::cups::ipp_tag::IPPTag;
 use crate::cups::protocol_families::PF;
 use url::Url;
+use crate::cups::ipp_operations::IppOp;
+use crate::gui::printer_setup_dialog::PrinterManufacturer;
 use crate::smb::SambaCredentials;
 
 mod c_interop;
@@ -14,57 +18,162 @@ mod ipp_operations;
 mod ipp_tag;
 mod ipp_status;
 
-pub fn connect_to_printer(creds: SambaCredentials, url: Url, printer_name: String) {
-    let cups_server = cups_server().unwrap_or(String::new());
-    let ipp_port = ipp_port();
+#[derive(Debug, Clone)]
+pub(crate) struct CupsManager {
+    http_t: *mut HttpT,
+    ppds: Vec<PpdInfo>,
+}
 
+#[derive(Debug, Default, Clone)]
+pub struct PpdInfo {
+    pub name: String,
+    pub make_and_model: String,
+    pub make: String,
+    pub product: String,
+}
 
-    let http_t = http_connect2(
-        &cups_server,
-        ipp_port,
-        None,
-        PF::Unspec,
-        HttpEncryption::IfRequested,
-        true,
-        30000,
-        None,
-    );
+impl CupsManager {
+    pub fn new() -> Self {
+        let cups_server = cups_server().unwrap_or(String::new());
+        let ipp_port = ipp_port();
 
-    if http_t.expect("REASON").is_null() {
-        eprintln!("Failed to connect to CUPS server at {}:{}", cups_server, ipp_port);
-        return;
+        let http_t = http_connect2(
+            &cups_server,
+            ipp_port,
+            None,
+            PF::Unspec,
+            HttpEncryption::IfRequested,
+            true,
+            30000,
+            None,
+        );
+
+        let http_t = http_t.expect("Failed to connect to CUPS server");
+
+        if http_t.is_null() {
+            panic!("Failed to connect to CUPS server at {}:{}", cups_server, ipp_port);
+        }
+
+        let mut this = CupsManager { http_t, ppds: Vec::new() };
+        this.fetch_ppds();
+
+        this
     }
 
-    let request = ipp_new_request(CupsAddModifyPrinter);
-    let mut smb_printer_uri = url;
+    pub fn connect_to_printer(&self, creds: SambaCredentials, url: Url, printer_name: String) {
+        let request = ipp_new_request(CupsAddModifyPrinter);
+        let mut smb_printer_uri = url;
 
-    smb_printer_uri
-        .set_username(&*creds.username)
-        .expect("Unable to set username");
+        smb_printer_uri
+            .set_username(&*creds.username)
+            .expect("Unable to set username");
 
-    smb_printer_uri
-        .set_password(Option::from(&*creds.password))
-        .expect("Unable to set password");
+        smb_printer_uri
+            .set_password(Option::from(&*creds.password))
+            .expect("Unable to set password");
 
-    ipp_add_string(request, IPPTag::Operation, IPPTag::Uri,
-                   Option::from("printer-uri"), None, &*("ipp://localhost/printers/".to_owned() + &printer_name));
+        ipp_add_string(request, IPPTag::Operation, IPPTag::Uri,
+                       Option::from("printer-uri"), None, &*("ipp://localhost/printers/".to_owned() + &printer_name));
 
-    ipp_add_string(request, IPPTag::Printer, IPPTag::Uri,
-                    Option::from("device-uri"), None,
-                    &smb_printer_uri.to_string());
+        ipp_add_string(request, IPPTag::Printer, IPPTag::Uri,
+                       Option::from("device-uri"), None,
+                       &smb_printer_uri.to_string());
 
-    // ipp_add_string(request, IPPTag::Printer, IPPTag::Name,
-    //                 Option::from("ppd-name"), None, "everywhere");
+        // ipp_add_string(request, IPPTag::Printer, IPPTag::Name,
+        //                 Option::from("ppd-name"), None, "everywhere");
 
 
-    let response = cups_do_request(http_t, request, "/admin/");
+        let response = cups_do_request(self.http_t, request, "/admin/");
 
-    if cups_last_error() > OkEventsComplete {
-        eprintln!("CUPS Error: {:?}", cups_last_error_string());
-    } else {
-        println!("Printer added/modified successfully.");
+        if cups_last_error() > OkEventsComplete {
+            eprintln!("CUPS Error: {:?}", cups_last_error_string());
+        } else {
+            println!("Printer added/modified successfully.");
+        }
+
+        ipp_delete(response);
     }
 
-    ipp_delete(response);
-    http_close(http_t);
+    pub fn get_printer_manufacturers(&self) -> Vec<PrinterManufacturer> {
+        let mut manufacturers_map: HashMap<String, PrinterManufacturer> = HashMap::new();
+
+        for ppd in &self.ppds {
+            match manufacturers_map.entry(ppd.make.clone()) {
+                Entry::Vacant(e) => {
+                    let mut manufacturer = PrinterManufacturer::new(ppd.make.clone());
+                    manufacturer.add_model(ppd.make_and_model.clone(), ppd.name.clone());
+                    e.insert(manufacturer);
+                }
+                Entry::Occupied(mut e) => {
+                    let manufacturer = e.get_mut();
+                    manufacturer.add_model(ppd.make_and_model.clone(), ppd.name.clone());
+                }
+            }
+        }
+
+        let mut manufacturers: Vec<PrinterManufacturer> = manufacturers_map.into_values().collect();
+        manufacturers.sort_by(|a, b| a.name.cmp(&b.name));
+        manufacturers
+    }
+
+    fn fetch_ppds(&mut self) -> bool {
+        let request = ipp_new_request(IppOp::CupsGetPpds);
+
+        ipp_add_string(request, IPPTag::Operation, IPPTag::Uri, Option::from("printer-uri"),
+                       None, "ipp://localhost/",
+        );
+
+        let response = cups_do_request(self.http_t, request, "/");
+
+        if response.is_none() {
+            eprintln!("CUPS request failed");
+            return false;
+        }
+
+        self.parse_response(response);
+
+        ipp_delete(response);
+        true
+    }
+
+    fn parse_response(&mut self, response: Option<*mut IppT>) {
+        let mut current = PpdInfo::default();
+
+        let mut attr = ipp_first_attribute(response);
+        while !attr.is_none() {
+            if ipp_get_group_tag(attr) == IPPTag::Printer {
+                let name_ptr = ipp_get_name(attr);
+                if !name_ptr.is_none() {
+                    let attr_name = name_ptr.unwrap();
+
+                    match attr_name.as_str() {
+                        "ppd-name" => {
+                            current = PpdInfo::default();
+                            current.name = ipp_get_string(attr,0).unwrap_or_default();
+                        }
+                        "ppd-make-and-model" => {
+                            current.make_and_model = ipp_get_string(attr, 0).unwrap_or_default();
+                        }
+                        "ppd-make" => {
+                            current.make = ipp_get_string(attr, 0).unwrap_or_default();
+                        }
+                        "ppd-product" => {
+                            current.product = ipp_get_string(attr, 0).unwrap_or_default();
+                            // Treat this as end of record
+                            self.ppds.push(current.clone());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            attr = ipp_next_attribute(response);
+        }
+    }
+}
+
+impl Drop for CupsManager {
+    fn drop(&mut self) {
+        http_close(self.http_t);
+    }
 }

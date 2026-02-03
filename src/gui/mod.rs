@@ -1,5 +1,6 @@
 mod samba_entry_object;
 mod smb_login_dialog;
+pub mod printer_setup_dialog;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -8,19 +9,24 @@ use crate::smb::{SambaConnection, SambaEntryType};
 use glib::{clone, MainContext, Propagation};
 use gtk::gio::{ListModel, ListStore};
 use gtk::{prelude::*, Align, Application, ApplicationWindow, Box, Button, GestureClick, Label, ListItem, ListView, NoSelection, Orientation, ScrolledWindow, SignalListItemFactory};
-use crate::cups::connect_to_printer;
+use crate::cups::CupsManager;
+use crate::gui::printer_setup_dialog::show_printer_setup_dialog;
+
 
 pub fn build_ui(application: &Application) {
     let factory = SignalListItemFactory::new();
     let smb_state: Rc<RefCell<Option<Rc<SambaConnection>>>> = Rc::new(RefCell::new(None));
+    let cups_manager = CupsManager::new();
 
     let list_store = ListStore::new::<SambaEntryObject>();
     let no_selection = NoSelection::new(Some(list_store.clone().upcast::<ListModel>()));
+    let app_window_holder: Rc<RefCell<Option<ApplicationWindow>>> = Rc::new(RefCell::new(None));
 
 
     factory.connect_setup({
         let smb_state = smb_state.clone();
         let list_store = list_store.clone();
+        let app_window_holder = app_window_holder.clone();
         move |_, obj| {
             let list_item = obj
                 .downcast_ref::<ListItem>()
@@ -34,9 +40,11 @@ pub fn build_ui(application: &Application) {
             let li = list_item.clone();
             let smb_state_cl = smb_state.clone();
             let list_store_cl = list_store.clone();
-            
+            let app_window_holder_cl = app_window_holder.clone();
+            let cups_manager = cups_manager.clone();
+
             gesture.connect_pressed(move |_gesture, n_press, _x, _y| {
-                if n_press == 2 {
+                if n_press >= 1 {
                     if let Some(entry) = li.item().and_downcast::<SambaEntryObject>() {
                         let server = entry.server_path();
                         let server = match server {
@@ -46,8 +54,6 @@ pub fn build_ui(application: &Application) {
                                 return;
                             }
                         };
-                        
-                        println!("Clicked entry: {}", server);
 
                         match entry.entry_type() {
                             SambaEntryType::Directory => {
@@ -69,16 +75,31 @@ pub fn build_ui(application: &Application) {
                                 }
                             }
                             SambaEntryType::Printer => {
-                                connect_to_printer(
-                                    smb_state_cl
-                                        .borrow()
-                                        .as_ref()
-                                        .expect("Samba connection should be established")
-                                        .credentials
-                                        .clone(),
-                                    server,
-                                    "printer".to_string(),
-                                );
+                                // Spawn the printer setup dialog on the main context
+
+                                let holder = app_window_holder_cl.clone();
+                                let manufacturers = cups_manager.get_printer_manufacturers();
+                                let cups_manager = cups_manager.clone();
+                                let smb_state_cl = smb_state_cl.clone();
+                                MainContext::default().spawn_local(async move {
+                                    if let Some(parent) = holder.borrow().as_ref() {
+                                        if let Some(result) = show_printer_setup_dialog(parent.clone(), manufacturers, Option::from(entry.name())).await {
+                                            println!("Chosen: {} {} {} {}", result.manufacturer, result.model, result.printer_name, result.location);
+
+
+                                            cups_manager.connect_to_printer(
+                                                smb_state_cl
+                                                    .borrow()
+                                                    .as_ref()
+                                                    .expect("Samba connection should be established")
+                                                    .credentials
+                                                    .clone(),
+                                                server,
+                                                result.printer_name
+                                            );
+                                        }
+                                    }
+                                });
                             }
 
                             _ => {}
@@ -157,6 +178,9 @@ pub fn build_ui(application: &Application) {
         .child(&vbox)
         .visible(true)
         .build();
+
+    // store window so asynchronous closures can access it later
+    *app_window_holder.borrow_mut() = Some(window.clone());
 
     connect_button.connect_clicked(clone!(
             #[weak]
