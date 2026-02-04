@@ -32,11 +32,11 @@ glib::wrapper! {
 }
 
 impl SambaEntryObject {
-    pub fn new(entry: SambaDirectoryEntry, server_path: Url) -> Self {
+    pub fn new(entry: &SambaDirectoryEntry, server_path: &Url) -> Self {
         let obj: Self = glib::Object::new();
-        obj.imp().name.replace(entry.name);
+        obj.imp().name.replace(entry.name.clone());
         obj.imp().entry_type.replace(entry.entry_type);
-        obj.imp().server_path.replace(Some(server_path));
+        obj.imp().server_path.replace(Some(server_path.clone()));
 
         obj
     }

@@ -65,8 +65,8 @@ pub fn build_ui(application: &Application) {
                                                 let server_path = server
                                                     .join(&entry.name)
                                                     .expect("Failed to join paths {} and {}");
-                                                
-                                                let obj = SambaEntryObject::new(entry, server_path);
+
+                                                let obj = SambaEntryObject::new(&entry, &server_path);
                                                 list_store_cl.append(&obj);
                                             }
                                         }
@@ -81,9 +81,10 @@ pub fn build_ui(application: &Application) {
                                 let manufacturers = cups_manager.get_printer_manufacturers();
                                 let cups_manager = cups_manager.clone();
                                 let smb_state_cl = smb_state_cl.clone();
+
                                 MainContext::default().spawn_local(async move {
                                     if let Some(parent) = holder.borrow().as_ref() {
-                                        if let Some(result) = show_printer_setup_dialog(parent.clone(), manufacturers, Option::from(entry.name())).await {
+                                        if let Some(result) = show_printer_setup_dialog(parent, manufacturers, Option::from(entry.name())).await {
                                             println!("Chosen: {} {} {} {}", result.manufacturer, result.model, result.printer_name, result.location);
 
 
@@ -195,7 +196,7 @@ pub fn build_ui(application: &Application) {
         if let Some(app) = window.application() {
             app.remove_window(window);
         }
-        
+
         Propagation::Proceed
     });
 

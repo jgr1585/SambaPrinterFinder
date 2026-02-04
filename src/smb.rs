@@ -70,7 +70,8 @@ pub struct SambaCredentials {
 #[derive(Clone)]
 pub struct SambaConnection {
     ctx: *mut SMBCCTX,
-    pub credentials: SambaCredentials
+    pub credentials: SambaCredentials,
+    pub server_root: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,7 +103,8 @@ static CREDENTIALS: Lazy<Mutex<SambaCredentials>> = Lazy::new(|| {
 
 
 impl SambaConnection {
-    pub fn connect(credentials: SambaCredentials) -> Result<Self> {
+    pub fn connect(credentials: SambaCredentials, server_root: &str) -> Result<Self> {
+        let server_root = server_root.to_string();
         unsafe {
             let ctx = smbc_new_context();
             if ctx.is_null() {
@@ -122,7 +124,7 @@ impl SambaConnection {
                 return Err(Error::new(ErrorKind::Other, "Failed to init SMB context"));
             }
 
-            Ok(SambaConnection { ctx, credentials } )
+            Ok(SambaConnection { ctx, credentials, server_root } )
         }
     }
 

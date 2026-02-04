@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::clone::Clone;
+use std::ops::Deref;
 use std::option::Option;
 use std::option::Option::{None, Some};
 use std::prelude::v1::{Err, Ok};
@@ -37,30 +38,24 @@ pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_s
         .column_spacing(6)
         .build();
 
-    let credentials = &smb_state.borrow().as_ref().cloned();
-    let credentials = match credentials {
-        Some(conn) => conn.credentials.clone(),
-        None => SambaCredentials {
-            workgroup: String::new(),
-            username: String::new(),
-            password: String::new(),
-        },
-    };
-
     let server = Entry::builder()
         .placeholder_text("Server address")
-
         .build();
     let username = Entry::builder()
-        .text(credentials.username.clone())
         .build();
     let password = PasswordEntry::builder()
-        .text(credentials.password.clone())
         .build();
     let domain = Entry::builder()
         .placeholder_text("WORKGROUP (optional)")
-        .text(credentials.workgroup.clone())
         .build();
+
+    // Pre-fill fields if smb_state has existing connection
+    if let Some(conn) = &smb_state.borrow().deref() {
+        server.set_text(&conn.server_root);
+        username.set_text(&conn.credentials.username);
+        password.set_text(&conn.credentials.password);
+        domain.set_text(&conn.credentials.workgroup);
+    }
 
     grid.attach(&Label::new(Some("Server:")), 0, 0, 1, 1);
     grid.attach(&server, 1, 0, 1, 1);
@@ -137,14 +132,14 @@ pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_s
         };
 
 
-        if !server.starts_with("smb://") {
-            server = format!("smb://{}", server);
-        }
-
-        let server_url = Url::parse(&server).expect("Invalid SMB URL");
-
-        match SambaConnection::connect(creds) {
+        match SambaConnection::connect(creds, &server) {
             Ok(conn) => {
+
+                if !server.starts_with("smb://") {
+                    server = format!("smb://{}", server);
+                }
+
+                let server_url = Url::parse(&server).expect("Invalid SMB URL");
 
                 let conn_rc = Rc::new(conn);
                 *smb_state.borrow_mut() = Some(conn_rc.clone());
@@ -154,7 +149,7 @@ pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_s
                         for entry in entries {
                             let sever_url = server_url.join(&entry.name).ok();
                             if sever_url.is_some() {
-                                let obj = SambaEntryObject::new(entry, sever_url.unwrap());
+                                let obj = SambaEntryObject::new(&entry, sever_url.as_ref().unwrap());
                                 list_store.append(&obj);
                             }
                         }

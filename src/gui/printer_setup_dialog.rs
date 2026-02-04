@@ -140,14 +140,14 @@ fn create_list_factory() -> SignalListItemFactory {
 /// # Returns
 /// `Some(PrinterSetupResult)` if the user confirms, `None` if cancelled
 pub async fn show_printer_setup_dialog<W: IsA<Window>>(
-    parent: W,
+    parent: &W,
     manufacturers: Vec<PrinterManufacturer>,
     printer_name: Option<String>,
 ) -> Option<PrinterSetupResult> {
     let dialog = Window::builder()
         .title("Printer Setup")
         .modal(true)
-        .transient_for(&parent)
+        .transient_for(parent)
         .default_width(600)
         .default_height(500)
         .resizable(true)
