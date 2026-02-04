@@ -3,8 +3,6 @@ mod ipp;
 mod ipp_attribute;
 mod enums;
 
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_port, HttpT};
 use enums::http_encryption::HttpEncryption;
 use enums::ipp_operations::IppOp::CupsAddModifyPrinter;
@@ -14,20 +12,24 @@ use enums::protocol_families::PF;
 use url::Url;
 use ipp::Ipp;
 use enums::ipp_operations::IppOp;
-use crate::gui::printer_setup_dialog::PrinterManufacturer;
+use crate::gui::printer_setup_dialog::PrinterSetupResult;
 use crate::smb::SambaCredentials;
 
 #[derive(Debug, Clone)]
 pub(crate) struct CupsManager {
     http_t: *mut HttpT,
-    ppds: Vec<PpdInfo>,
+    pub ppds: Vec<PpdInfo>,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct PpdInfo {
+    // PPD file name
     pub name: String,
+    // Manufacturer and Model combined
     pub make_and_model: String,
+    // Manufacturer only
     pub make: String,
+    // Model only
     pub product: String,
 }
 
@@ -59,9 +61,9 @@ impl CupsManager {
         this
     }
 
-    pub fn connect_to_printer(&self, creds: SambaCredentials, url: Url, printer_name: String) {
+    pub fn connect_to_printer(&self, creds: SambaCredentials, url: &Url, setup: &PrinterSetupResult, ppd: Option<&PpdInfo>) {
         let request = Ipp::new(CupsAddModifyPrinter);
-        let mut smb_printer_uri = url;
+        let mut smb_printer_uri = url.clone();
 
         smb_printer_uri
             .set_username(&*creds.username)
@@ -71,15 +73,27 @@ impl CupsManager {
             .set_password(Option::from(&*creds.password))
             .expect("Unable to set password");
 
+        // Create printer URI and escape printer name
+        let mut printer_ipp_uri = Url::parse("ipp://localhost/printers/").unwrap();
+        printer_ipp_uri = printer_ipp_uri.join(&setup.printer_name).expect("Unable to create printer URI");
+
         request.add_string(IPPTag::Operation, IPPTag::Uri,
-                           Option::from("printer-uri"), None, &*("ipp://localhost/printers/".to_owned() + &printer_name));
+                           Option::from("printer-uri"), None, &printer_ipp_uri.to_string());
 
         request.add_string(IPPTag::Printer, IPPTag::Uri,
                        Option::from("device-uri"), None,
                        &smb_printer_uri.to_string());
 
-        // ipp_add_string(request, IPPTag::Printer, IPPTag::Name,
-        //                 Option::from("ppd-name"), None, "everywhere");
+        request.add_string(IPPTag::Printer, IPPTag::Name,
+                       Option::from("printer-location"), None,
+                       &setup.location);
+
+
+        if let Some(ppd) = ppd {
+            request.add_string(IPPTag::Printer, IPPTag::Name,
+                           Option::from("ppd-name"), None,
+                           &ppd.name);
+        }
 
 
         let response = cups_do_request(self.http_t, request.into_raw(), "/admin/");
@@ -92,28 +106,6 @@ impl CupsManager {
         } else {
             println!("Printer added/modified successfully.");
         }
-    }
-
-    pub fn get_printer_manufacturers(&self) -> Vec<PrinterManufacturer> {
-        let mut manufacturers_map: HashMap<String, PrinterManufacturer> = HashMap::new();
-
-        for ppd in &self.ppds {
-            match manufacturers_map.entry(ppd.make.clone()) {
-                Entry::Vacant(e) => {
-                    let mut manufacturer = PrinterManufacturer::new(ppd.make.clone());
-                    manufacturer.add_model(ppd.make_and_model.clone(), ppd.name.clone());
-                    e.insert(manufacturer);
-                }
-                Entry::Occupied(mut e) => {
-                    let manufacturer = e.get_mut();
-                    manufacturer.add_model(ppd.make_and_model.clone(), ppd.name.clone());
-                }
-            }
-        }
-
-        let mut manufacturers: Vec<PrinterManufacturer> = manufacturers_map.into_values().collect();
-        manufacturers.sort_by(|a, b| a.name.cmp(&b.name));
-        manufacturers
     }
 
     fn fetch_ppds(&mut self) -> bool {
@@ -155,19 +147,20 @@ impl CupsManager {
                     if let Some(attr_name) = name_ptr {
 
                         match attr_name.as_str() {
-                            "ppd-name" => {
+                            "ppd-name" => { // PPD file name
                                 current = PpdInfo::default();
                                 current.name = attr_ref.get_string().unwrap_or_default();
                             }
-                            "ppd-make-and-model" => {
+                            "ppd-make-and-model" => { // Manufacturer and Model combined
                                 current.make_and_model = attr_ref.get_string().unwrap_or_default();
                             }
-                            "ppd-make" => {
+                            "ppd-make" => { // Manufacturer only
                                 current.make = attr_ref.get_string().unwrap_or_default();
                             }
-                            "ppd-product" => {
+                            "ppd-product" => { // Model only
                                 current.product = attr_ref.get_string().unwrap_or_default();
-                                // Treat this as end of record
+
+                                // "ppd-product" marks also the end of one PPD entry
                                 self.ppds.push(current.clone());
                             }
                             _ => {}

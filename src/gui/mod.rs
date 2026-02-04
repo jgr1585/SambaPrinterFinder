@@ -9,7 +9,7 @@ use crate::smb::{SambaConnection, SambaEntryType};
 use glib::{clone, MainContext, Propagation};
 use gtk::gio::{ListModel, ListStore};
 use gtk::{prelude::*, Align, Application, ApplicationWindow, Box, Button, GestureClick, Label, ListItem, ListView, NoSelection, Orientation, ScrolledWindow, SignalListItemFactory};
-use crate::cups::CupsManager;
+use crate::cups::{CupsManager, PpdInfo};
 use crate::gui::printer_setup_dialog::show_printer_setup_dialog;
 
 
@@ -78,15 +78,21 @@ pub fn build_ui(application: &Application) {
                                 // Spawn the printer setup dialog on the main context
 
                                 let holder = app_window_holder_cl.clone();
-                                let manufacturers = cups_manager.get_printer_manufacturers();
                                 let cups_manager = cups_manager.clone();
                                 let smb_state_cl = smb_state_cl.clone();
 
                                 MainContext::default().spawn_local(async move {
                                     if let Some(parent) = holder.borrow().as_ref() {
-                                        if let Some(result) = show_printer_setup_dialog(parent, manufacturers, Option::from(entry.name())).await {
+                                        if let Some(result) = show_printer_setup_dialog(parent, &cups_manager.ppds, Option::from(entry.name())).await {
                                             println!("Chosen: {} {} {} {}", result.manufacturer, result.model, result.printer_name, result.location);
+                                            let mut ppd_file: Option<&PpdInfo> = None;
 
+                                            for ppd in &cups_manager.ppds {
+                                                if ppd.make == result.manufacturer && ppd.product == result.model {
+                                                    ppd_file = Some(ppd);
+                                                    break;
+                                                }
+                                            }
 
                                             cups_manager.connect_to_printer(
                                                 smb_state_cl
@@ -95,8 +101,9 @@ pub fn build_ui(application: &Application) {
                                                     .expect("Samba connection should be established")
                                                     .credentials
                                                     .clone(),
-                                                server,
-                                                result.printer_name
+                                                &server,
+                                                &result,
+                                                ppd_file
                                             );
                                         }
                                     }

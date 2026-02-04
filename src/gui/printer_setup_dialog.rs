@@ -1,17 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use glib::clone;
+use glib::{clone, Object};
+use glib::subclass::prelude::ObjectSubclassIsExt;
 use gtk::gio::{ListModel, ListStore};
-use gtk::{prelude::*, Align, Box, Button, Entry, Frame, Grid, Label, ListItem, ListView, Orientation, ScrolledWindow, SignalListItemFactory, Window};
+use gtk::{prelude::*, Align, Box, Button, Entry, Frame, Grid, Label, ListItem, ListView, Orientation, PolicyType, ScrolledWindow, SignalListItemFactory, SingleSelection, Window};
 use oneshot::channel;
-
-/// Data structure representing a printer manufacturer with its models
-#[derive(Clone)]
-pub struct PrinterManufacturer {
-    pub name: String,
-    pub models: Vec<String>,
-}
+use crate::cups::PpdInfo;
 
 /// Result from the printer setup dialog
 #[derive(Debug, Clone)]
@@ -47,7 +42,7 @@ glib::wrapper! {
 
 impl ManufacturerObject {
     pub fn new(name: &str) -> Self {
-        let obj: Self = glib::Object::new();
+        let obj: Self = Object::new();
         obj.imp().name.replace(name.to_string());
         obj
     }
@@ -57,7 +52,7 @@ impl ManufacturerObject {
     }
 
     fn imp(&self) -> &manufacturer_object::ManufacturerObject {
-        glib::subclass::prelude::ObjectSubclassIsExt::imp(self)
+        ObjectSubclassIsExt::imp(self)
     }
 }
 
@@ -95,19 +90,7 @@ impl ModelObject {
     }
 
     fn imp(&self) -> &model_object::ModelObject {
-        glib::subclass::prelude::ObjectSubclassIsExt::imp(self)
-    }
-}
-
-impl PrinterManufacturer {
-    pub fn new(name: String) -> Self {
-        PrinterManufacturer { name, models: Vec::new() }
-    }
-
-    /// Add a model to this manufacturer. The `ppd_name` is currently unused
-    /// but kept to match callers that provide both `make_and_model` and `ppd_name`.
-    pub fn add_model(&mut self, make_and_model: String, _ppd_name: String) {
-        self.models.push(make_and_model);
+        ObjectSubclassIsExt::imp(self)
     }
 }
 
@@ -141,7 +124,7 @@ fn create_list_factory() -> SignalListItemFactory {
 /// `Some(PrinterSetupResult)` if the user confirms, `None` if cancelled
 pub async fn show_printer_setup_dialog<W: IsA<Window>>(
     parent: &W,
-    manufacturers: Vec<PrinterManufacturer>,
+    manufacturers: &Vec<PpdInfo>,
     printer_name: Option<String>,
 ) -> Option<PrinterSetupResult> {
     let dialog = Window::builder()
@@ -177,7 +160,7 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
         .build();
 
     let manufacturer_store = ListStore::new::<ManufacturerObject>();
-    for mfr in &manufacturers {
+    for mfr in manufacturers {
         manufacturer_store.append(&ManufacturerObject::new(&mfr.name));
     }
 
@@ -245,7 +228,7 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
         label.set_text(&item.name());
     });
 
-    let model_selection = gtk::SingleSelection::new(Some(model_store.clone().upcast::<ListModel>()));
+    let model_selection = SingleSelection::new(Some(model_store.clone().upcast::<ListModel>()));
 
     let model_list = ListView::builder()
         .model(&model_selection)
@@ -253,8 +236,8 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
         .build();
 
     let model_scroll = ScrolledWindow::builder()
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .vscrollbar_policy(gtk::PolicyType::Automatic)
+        .hscrollbar_policy(PolicyType::Never)
+        .vscrollbar_policy(PolicyType::Automatic)
         .child(&model_list)
         .build();
 
@@ -356,8 +339,10 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
                 // Find the manufacturer and populate models
                 if let Some(mfr) = manufacturers_clone.iter().find(|m| m.name == mfr_name) {
                     model_store_clone.remove_all();
-                    for model in &mfr.models {
-                        model_store_clone.append(&ModelObject::new(model));
+                    for model in &manufacturers_clone {
+                        if model.name == mfr.name {
+                            model_store_clone.append(&ModelObject::new(&model.product));
+                        }
                     }
                 }
             }
