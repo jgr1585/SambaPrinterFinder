@@ -2,7 +2,7 @@ mod c_interop;
 mod ipp;
 mod ipp_attribute;
 mod enums;
-    
+
 use c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_port, HttpT};
 use enums::http_encryption::HttpEncryption;
 use enums::ipp_operations::IppOp::CupsAddModifyPrinter;
@@ -114,6 +114,9 @@ impl CupsManager {
     }
 
     fn fetch_ppds(&mut self) -> bool {
+        // CupsGetPpds is deprecated in CUPS 2.4 and later, but it seems to be the only way to get a list of available PPDs without parsing the filesystem directly, which is what CUPS does internally.
+        // The alternative would be to read the PPD files directly from the filesystem, but that would require us to know the exact location of the PPD files, which may not be consistent across different CUPS installations or versions.
+        // For now, we'll use CupsGetPpds and hope that it continues to be supported in future CUPS versions, but if it gets removed we may need to switch to a different approach, such as parsing the PPD files directly or using a different CUPS API if one becomes available.
         let request = Ipp::new(IppOp::CupsGetPpds);
 
         request.add_string(IPPTag::Operation, IPPTag::Uri, Option::from("printer-uri"),
@@ -151,6 +154,8 @@ impl CupsManager {
                     let name_ptr = attr_ref.get_name();
                     if let Some(attr_name) = name_ptr {
 
+                        // This is a bit of a hack, but CUPS doesn't provide a clear way to identify the end of a PPD entry, so we assume that "ppd-product" is the last attribute of each entry.
+                        // This seems to be consistent with the CUPS implementation, but it may not be guaranteed in all cases.
                         match attr_name.as_str() {
                             "ppd-name" => { // PPD file name
                                 current = PpdInfo::default();
