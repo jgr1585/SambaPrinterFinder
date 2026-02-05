@@ -1,28 +1,50 @@
 # Samba Printer Finder
-A simple GTK4 application written in Rust that discovers and lists Samba (SMB) printers available on the local network.
+A GTK4 application written in Rust that discovers and lists SMB (Samba) printers available on the local network.
+
+## Table of contents
+- [Overview](#overview) 
+- [Features](#features)
+- [Installation status](#installation-status)
+- [Build requirements](#build-requirements)
+  - [Ubuntu/Debian](#ubuntudebian)
+  - [Fedora](#fedora)
+  - [Arch Linux](#arch-linux)
+  - [MacOS (Homebrew)](#macos-homebrew)
+- [Build instructions](#build-instructions)
+- [Platform notes](#platform-notes)
+- [Roadmap](#roadmap)
+  - [Missing features](#missing-features)
+  - [Not planned](#not-planned)
+
+## Overview
+Samba Printer Finder focuses on one thing: discovering SMB printers on your Network and letting you install them through a simple GTK4 UI.
+Nothing more, nothing less.
+It is written in Rust and uses GTK4 for the user interface, CUPS for printer management, and Samba libraries for SMB communication.
+
 
 ## Features
-- Discovers printers shared via Samba on the local network.
-- Displays printer names and their network addresses in a user-friendly GTK4 interface.
-- Allows the user to install selected printers.
+- Discover printers shared via SMB on the local network.
+- Display printer names and their network addresses in a GTK4 interface.
+- Install selected printers.
 
-## Installing
-TODO: Provide pre-built binaries or package instructions. Currently, you need to build from source.
-
+## Installation status
+There are no pre-built packages yet see [Roadmap](#roadmap) for details.
+For now, build from source.
+See the [Build instructions](#build-instructions) section below.
 
 ## Build requirements
-You need to have the following dependencies installed on your system:
+You need the following dependencies installed on your system:
 - Rust (latest stable version)
 - GTK4 development libraries (https://gtk-rs.org/gtk4-rs/stable/latest/book/installation.html)
 - CUPS development libraries
 - Samba development libraries
-
-## Building on Ubuntu/Debian
+- 
+### Ubuntu/Debian
 ```bash
 sudo apt install libgtk-4-dev libcups2-dev libsamba-dev build-essential
 ```
 
-### Building on Fedora
+### Fedora
 ```bash
 sudo dnf install gtk4-devel cups-devel samba-devel gcc
 ```
@@ -32,12 +54,44 @@ sudo dnf install gtk4-devel cups-devel samba-devel gcc
 sudo pacman -S gtk4 cups samba base-devel
 ```
 
-### MacOS (with Homebrew)
+### MacOS (Homebrew)
 ```bash
 brew install gtk4 cups samba
 ```
 
-#### Windows
-Building under Windows untested, undocumented and not officially supported.
-You can try it, but you will need to figure out how to install the required dependencies yourself.
-It is recommended to use a native Linux environment for best results.
+## Build instructions
+1. Clone the repository.
+2. Navigate to the project directory.
+3. Build the project using Cargo: `cargo build --release`
+4. Run the application: `cargo run --release`
+
+## Platform notes
+### Windows
+Windows is not officially supported.
+You may be able to build and run the application using WSL2, but this is untested.
+Just use the Windows file explorer, it has almost feature parity with this application, except for a nice GTK4 interface.
+
+## Roadmap
+### Missing features
+- Better error handling and user feedback (currently errors are logged to the console only).
+- UI/UX improvements.
+- Workgroup selection (currently a placeholder).
+- Save SMB credentials securely to avoid prompting on every start.
+- Localization and internationalization support.
+- Unit tests and integration tests.
+- Packaging:
+  - AppImage and Flatpak are first priority for Linux.
+  - Deb/RPM packages are possible.
+  - AUR package for Arch Linux could be created in the future.
+  - macOS: no plans yet, but .dmg or Homebrew formula could be considered.
+  - Snap: Just... no...
+- Load custom PPD files for printers without built-in CUPS support.
+
+## Not planned
+- Support for non-SMB printers (IPP, LPD, etc.).
+- Advanced printer management (default printer, print jobs). Use system settings.
+- Deleting/uninstalling printers. Use system settings.
+- Libadwaita support. If this really bothers you, PR are open.
+
+## License
+See [LICENSE](LICENSE).

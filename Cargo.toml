@@ -1,6 +1,8 @@
 [package]
 name = "samba_printer_finder"
-version = "0.1.0"
+version = "0.0.1-alpha"
+description = "A simple Utillity to find a smb (samba) Printer on the Network"
+license = "GPL-3"
 authors = [".J.E.B."]
 edition = "2018"
 build = "src/build.rs"
