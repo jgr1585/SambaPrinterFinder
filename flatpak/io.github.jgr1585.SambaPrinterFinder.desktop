@@ -1,0 +1,16 @@
+[Desktop Entry]
+Categories=Utility
+GenericName[de]=Samba Drucker Sucher
+GenericName[en]=Samba Printer Finder
+GenericName=Samba Printer Finder
+Icon=io.github.jgr1585.SambaPrinterFinder
+Keywords=printer;Samba;CIFS;scan;network
+Name[de]=Samba Drucker Sucher
+Name[en]=Samba Printer Finder
+Name=Samba Printer Finder
+Exec=/app/bin/samba-printer-finder
+Comment[de]=Suchen und verbinden von Samba/CIFS-Netzwerkdruckern
+Comment[en]=Find and connect to Samba/CIFS network printers
+Comment=Find and connect to Samba/CIFS network printers
+StartupNotify=true
+Type=Application

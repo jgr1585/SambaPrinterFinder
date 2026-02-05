@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+    <id>io.github.jgr1585.SambaPrinterFinder</id>
+    <metadata_license>CC0</metadata_license>
+    <project_license>GPL-3.0+</project_license>
+    <name>Samba Printer Finder</name>
+    <summary>Find Samba network printers and integrate with CUPS</summary>
+    <description>
+        <p>
+            Samba Printer Finder is a small GUI utility that discovers printers shared
+            over Samba (SMB) on the local network and helps integrate them with CUPS.
+        </p>
+    </description>
+    <url type="homepage">https://github.com/jgr1585/SambaPrinterFinder</url>
+    <launchable type="desktop-id">io.github.jgr1585.SambaPrinterFinder.desktop</launchable>
+
+    <releases>
+        <release version="0.0.1" date="2026-02-01" />
+    </releases>
+    <developer id="io.github.jgr1585">
+        <name translate="no">.J.E.B.</name>
+    </developer>
+</component>
