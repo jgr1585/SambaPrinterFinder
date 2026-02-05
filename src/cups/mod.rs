@@ -2,7 +2,7 @@ mod c_interop;
 mod ipp;
 mod ipp_attribute;
 mod enums;
-
+    
 use c_interop::{cups_do_request, cups_last_error, cups_last_error_string, cups_server, http_close, http_connect2, ipp_port, HttpT};
 use enums::http_encryption::HttpEncryption;
 use enums::ipp_operations::IppOp::CupsAddModifyPrinter;
@@ -84,10 +84,15 @@ impl CupsManager {
                        Option::from("device-uri"), None,
                        &smb_printer_uri.to_string());
 
+        let location = url_escape::encode_fragment(&setup.location);
         request.add_string(IPPTag::Printer, IPPTag::Name,
                        Option::from("printer-location"), None,
-                       &setup.location);
+                       &location.to_string());
 
+        let description = url_escape::encode_fragment(&setup.description);
+        request.add_string(IPPTag::Printer, IPPTag::Name,
+                       Option::from("printer-info"), None,
+                       &description.to_string());
 
         if let Some(ppd) = ppd {
             request.add_string(IPPTag::Printer, IPPTag::Name,

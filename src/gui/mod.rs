@@ -88,7 +88,7 @@ pub fn build_ui(application: &Application) {
                                             let mut ppd_file: Option<&PpdInfo> = None;
 
                                             for ppd in &cups_manager.ppds {
-                                                if ppd.make == result.manufacturer && ppd.product == result.model {
+                                                if ppd.make == result.manufacturer && ppd.make_and_model == result.model {
                                                     ppd_file = Some(ppd);
                                                     break;
                                                 }

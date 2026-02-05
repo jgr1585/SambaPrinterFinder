@@ -160,8 +160,17 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
         .build();
 
     let manufacturer_store = ListStore::new::<ManufacturerObject>();
+    let mut model_make = Vec::new();
+
     for mfr in manufacturers {
-        manufacturer_store.append(&ManufacturerObject::new(&mfr.name));
+        if model_make.contains(&&mfr.make) {
+            continue;
+        }
+        model_make.push(&mfr.make);
+    }
+
+    for make in model_make {
+        manufacturer_store.append(&ManufacturerObject::new(make));
     }
 
     let manufacturer_factory = create_list_factory();
@@ -183,7 +192,7 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
         label.set_text(&item.name());
     });
 
-    let manufacturer_selection = gtk::SingleSelection::new(Some(
+    let manufacturer_selection = SingleSelection::new(Some(
         manufacturer_store.clone().upcast::<ListModel>(),
     ));
 
@@ -337,11 +346,11 @@ pub async fn show_printer_setup_dialog<W: IsA<Window>>(
                 *selected_manufacturer_clone.borrow_mut() = Some(mfr_name.clone());
 
                 // Find the manufacturer and populate models
-                if let Some(mfr) = manufacturers_clone.iter().find(|m| m.name == mfr_name) {
+                if let Some(mfr) = manufacturers_clone.iter().find(|m| m.make == mfr_name) {
                     model_store_clone.remove_all();
                     for model in &manufacturers_clone {
-                        if model.name == mfr.name {
-                            model_store_clone.append(&ModelObject::new(&model.product));
+                        if model.make.eq(&mfr.make) {
+                            model_store_clone.append(&ModelObject::new(&model.make_and_model));
                         }
                     }
                 }
