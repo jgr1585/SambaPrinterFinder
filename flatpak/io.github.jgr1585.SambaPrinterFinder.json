@@ -12,10 +12,10 @@
         "--socket=fallback-x11",
         "--socket=wayland",
         "--device=dri",
-        "--system-talk-name=org.cups.cupsd",
+        "--socket=cups",
+        "--socket=session-bus",
         "--filesystem=home",
-        "--filesystem=/run/cups:ro",
-        "--filesystem=/var/run/cups:ro"
+        "--filesystem=/run/cups:ro"
     ],
     "build-options": {
         "append-path" : "/usr/lib/sdk/rust-stable/bin",
