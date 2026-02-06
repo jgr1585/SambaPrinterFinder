@@ -1,6 +1,6 @@
 [package]
 name = "samba_printer_finder"
-version = "0.0.1-alpha"
+version = "0.0.1"
 description = "A simple Utillity to find a smb (samba) Printer on the Network"
 license = "GPL-3"
 authors = [".J.E.B."]
@@ -21,3 +21,13 @@ url-escape = "0.1.1"
 [build-dependencies]
 pkg-config = "0.3.32"
 
+[package.metadata.bundle]
+name = "Samba Printer Finder"
+identifier = "io.github.jgr1585.SambaPrinterFinder"
+category = "Utility"
+deb_dependency = ["libgtk-4-bin", "libglib2.0-bin", "libcups2t64", "samba-common"]
+
+[package.metadata.appimage]
+name = "Samba Printer Finder"
+icon = "assets/icon.svg"
+auto_link = true
