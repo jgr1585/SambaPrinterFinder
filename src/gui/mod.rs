@@ -14,8 +14,9 @@ use crate::gui::printer_setup_dialog::show_printer_setup_dialog;
 
 
 pub fn build_ui(application: &Application) {
+    // ---- State and Factories ----
     let factory = SignalListItemFactory::new();
-    let smb_state: Rc<RefCell<Option<Rc<SambaConnection>>>> = Rc::new(RefCell::new(None));
+    let smb_state: Rc<RefCell<Option<Rc<SambaConnection>>>> = Rc::new(RefCell::new(None)); // Might look ugly, but it works need some refactoring in a later release
     let cups_manager = CupsManager::new();
 
     let list_store = ListStore::new::<SambaEntryObject>();
@@ -37,12 +38,14 @@ pub fn build_ui(application: &Application) {
 
             let gesture = GestureClick::new();
 
+            // Why do I need to clone all of these??? I Might need to look more into that, but for now it is working.
             let li = list_item.clone();
             let smb_state_cl = smb_state.clone();
             let list_store_cl = list_store.clone();
             let app_window_holder_cl = app_window_holder.clone();
             let cups_manager = cups_manager.clone();
 
+            // Connect the click gesture to handle item clicks
             gesture.connect_pressed(move |_gesture, n_press, _x, _y| {
                 if n_press >= 1 {
                     if let Some(entry) = li.item().and_downcast::<SambaEntryObject>() {
@@ -55,7 +58,9 @@ pub fn build_ui(application: &Application) {
                             }
                         };
 
+                        // Handle the click based on the entry type
                         match entry.entry_type() {
+                            // If it's a directory, navigate into it and list its contents
                             SambaEntryType::Directory => {
                                 if let Some(conn_rc) = smb_state_cl.borrow().as_ref() {
                                     match conn_rc.list_directory(&server) {
@@ -74,6 +79,7 @@ pub fn build_ui(application: &Application) {
                                     }
                                 }
                             }
+                            // If it's a printer, open the printer setup dialog
                             SambaEntryType::Printer => {
                                 // Spawn the printer setup dialog on the main context
 
@@ -87,13 +93,14 @@ pub fn build_ui(application: &Application) {
                                             println!("Chosen: {} {} {} {}", result.manufacturer, result.model, result.printer_name, result.location);
                                             let mut ppd_file: Option<&PpdInfo> = None;
 
+                                            // Find the matching PPD file for the selected printer
                                             for ppd in &cups_manager.ppds {
                                                 if ppd.make == result.manufacturer && ppd.make_and_model == result.model {
                                                     ppd_file = Some(ppd);
                                                     break;
                                                 }
                                             }
-
+                                            // Connect to the printer using the CUPS APIs
                                             cups_manager.connect_to_printer(
                                                 smb_state_cl
                                                     .borrow()
@@ -109,10 +116,13 @@ pub fn build_ui(application: &Application) {
                                     }
                                 });
                             }
-
+                            // Files and unknown types are not interactable in this version, so we do nothing on click
+                            // In the future we might want to add functionality for files (e.g. open with default app, download, etc.), but there is no plan for that.
                             _ => {}
                         }
                     } else {
+                        // This should never happen, but we log it just in case
+                        // Before this happens the application would already have crashed.
                         println!("No model item found for this row");
                     }
                 }
@@ -139,6 +149,8 @@ pub fn build_ui(application: &Application) {
             .downcast::<Label>()
             .unwrap();
 
+        // Set an icon based on the entry type
+        // Note: In Clion and Rust Rover it looks like there are just empty strings, but there are really there. DON'T DELETE THEM, THEY ARE IMPORTANT FOR THE UI FOR REAL
         let icon = match entry.entry_type() {
             SambaEntryType::Directory => "📁",
             SambaEntryType::File => "📄",

@@ -22,6 +22,7 @@ fn main() -> glib::ExitCode {
         }
     });
 
+    // Build the UI when the application is activated
     application.connect_activate(build_ui);
     application.run()
 }

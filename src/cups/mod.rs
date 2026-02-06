@@ -33,6 +33,7 @@ pub struct PpdInfo {
     pub product: String,
 }
 
+// Handle the Interaction between Cups and the rest of the application.
 impl CupsManager {
     pub fn new() -> Self {
         let cups_server = cups_server().unwrap_or(String::new());
@@ -143,6 +144,7 @@ impl CupsManager {
         true
     }
 
+    // Internal function to parse the response from the CupsGetPpds into PpdInfo structs
     fn parse_response(&mut self, response: &mut Ipp) {
         let mut current = PpdInfo::default();
 

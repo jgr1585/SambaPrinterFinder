@@ -1,6 +1,13 @@
 # Samba Printer Finder
 A GTK4 application written in Rust that discovers and lists SMB (Samba) printers available on the local network.
 
+It is also small project for me to learn Rust.
+So, the code might be ugly, but for now it works... at least most of the time.
+It is still in early development, so expect bugs, crashes, and missing features.
+
+DO NOT use this in production or expect it to work flawlessly.
+
+
 ## Table of contents
 - [Overview](#overview) 
 - [Features](#features)
@@ -19,13 +26,15 @@ A GTK4 application written in Rust that discovers and lists SMB (Samba) printers
 ## Overview
 Samba Printer Finder focuses on one thing: discovering SMB printers on your Network and letting you install them through a simple GTK4 UI.
 Nothing more, nothing less.
-It is written in Rust and uses GTK4 for the user interface, CUPS for printer management, and Samba libraries for SMB communication.
 
 
 ## Features
-- Discover printers shared via SMB on the local network.
+- Connect to SMB shares using provided credentials.
+![Screenshot of Samba Printer Finder discovering printers](screenshots/login_screen.webp)
 - Display printer names and their network addresses in a GTK4 interface.
-- Install selected printers.
+![Screenshot of Samba Printer Finder discovering printers](screenshots/main_screen.webp)
+- Select a printer, alter its properties and install it using CUPS.
+![Screenshot of Samba Printer Finder installing a printer](screenshots/printer_details_screen.webp)
 
 ## Installation status
 There are no pre-built packages yet see [Roadmap](#roadmap) for details.

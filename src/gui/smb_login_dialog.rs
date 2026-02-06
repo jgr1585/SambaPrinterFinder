@@ -15,6 +15,7 @@ use gtk::{prelude::*, Align, Button, Entry, Grid, Label, Orientation, PasswordEn
 use oneshot::channel;
 use url::Url;
 
+// This is the
 pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_state: Rc<RefCell<Option<Rc<SambaConnection>>>>) {
     let dialog = Window::builder()
         .title("SMB Authentication")
@@ -131,7 +132,7 @@ pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_s
             password: pass,
         };
 
-
+        // Attempt to connect to SMB server with provided credentials
         match SambaConnection::connect(creds, &server) {
             Ok(conn) => {
 
@@ -144,6 +145,7 @@ pub async fn show_dialog<W: IsA<Window>>(parent: W, list_store: ListStore, smb_s
                 let conn_rc = Rc::new(conn);
                 *smb_state.borrow_mut() = Some(conn_rc.clone());
 
+                // List the root directory of the SMB server and populate the list store
                 match conn_rc.list_directory(&server_url) {
                     Ok(entries) => {
                         for entry in entries {

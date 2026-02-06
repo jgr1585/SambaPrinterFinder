@@ -93,6 +93,7 @@ pub struct SambaDirectoryEntry {
     pub entry_type: SambaEntryType,
 }
 
+// Global variable to hold credentials for the auth callback
 static CREDENTIALS: Lazy<Mutex<SambaCredentials>> = Lazy::new(|| {
     Mutex::new(SambaCredentials {
         workgroup: String::new(),
@@ -101,7 +102,8 @@ static CREDENTIALS: Lazy<Mutex<SambaCredentials>> = Lazy::new(|| {
     })
 });
 
-
+// A safe wrapper around the SMB client library
+// Important: This struct is not thread-safe. This might be a problem for future me. For now, just use this struct only ones.
 impl SambaConnection {
     pub fn connect(credentials: SambaCredentials, server_root: &str) -> Result<Self> {
         let server_root = server_root.to_string();
@@ -207,6 +209,8 @@ pub unsafe extern "C" fn auth_fn(
         *dst.add(n) = 0; // null-terminate
     }
 
+    // Get credentials from the global variable, this is safe because the mutex ensures exclusive access
+    //
     let credentials = CREDENTIALS.lock().unwrap();
 
     write_c_string(workgroup, wglen, credentials.workgroup.as_str());
