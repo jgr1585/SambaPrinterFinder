@@ -4,7 +4,7 @@
 set -e
 
 echo "Building with cargo appimage..."
-cargo appimage
+cargo appimage --release
 
 # Clean up any existing AppImage to avoid confusion
 rm -rf target/appimage/samba_printer_finder.AppImage
