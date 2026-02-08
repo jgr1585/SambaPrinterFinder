@@ -25,7 +25,7 @@ pkg-config = "0.3.32"
 name = "Samba Printer Finder"
 identifier = "io.github.jgr1585.SambaPrinterFinder"
 resources = ["assets/images/*", "assets/icon.svg"]
-icon = ["32x32.png", "32x32@2x.png", "64x64.png", "64x64@2x.png", "128x128.png", "128x128@2x.png", "256x256.png", "icon.svg"]
+icon = ["assets/images/32x32.png", "assets/images/32x32@2x.png", "assets/images/64x64.png", "assets/images/128x128.png", "assets/images/128x128@2x.png", "assets/images/256x256.png", "assets/images/256x256@2x.png"]
 category = "Utility"
 deb_dependency = ["libgtk-4-bin", "libglib2.0-bin", "libcups2t64", "samba-common"]
 
