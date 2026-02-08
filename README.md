@@ -8,10 +8,17 @@ It is still in early development, so expect bugs, crashes, and missing features.
 DO NOT use this in production or expect it to work flawlessly.
 
 
+![License](https://img.shields.io/github/license/jgr1585/SambaPrinterFinder)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue)
+![GitHub Release](https://img.shields.io/github/v/tag/jgr1585/SambaPrinterFinder?include_prereleases&label=version)
+![Last commit](https://img.shields.io/github/last-commit/jgr1585/SambaPrinterFinder)
+![RustEdition](https://img.shields.io/badge/rust-edition%202018-green)
+
+
 ## Table of contents
-- [Overview](#overview) 
+- [Overview](#overview)
+- [Installation status](#installation-status) 
 - [Features](#features)
-- [Installation status](#installation-status)
 - [Build requirements](#build-requirements)
   - [Ubuntu/Debian](#ubuntudebian)
   - [Fedora](#fedora)
@@ -28,6 +35,12 @@ Samba Printer Finder focuses on one thing: discovering SMB printers on your Netw
 Nothing more, nothing less.
 
 
+## Installation
+Prebuilt binaries are available for Linux (AppImage and deb) and MacOS (dmg) on the [GitHub Releases page](https://github.com/jgr1585/SambaPrinterFinder/releases).
+
+
+If you prefer to build from source, see the [Build instructions](#build-instructions) section below.
+
 ## Features
 - Connect to SMB shares using provided credentials.
 ![Screenshot of Samba Printer Finder discovering printers](screenshots/login_screen.webp)
@@ -35,11 +48,6 @@ Nothing more, nothing less.
 ![Screenshot of Samba Printer Finder discovering printers](screenshots/main_screen.webp)
 - Select a printer, alter its properties and install it using CUPS.
 ![Screenshot of Samba Printer Finder installing a printer](screenshots/printer_details_screen.webp)
-
-## Installation status
-There are no pre-built packages yet see [Roadmap](#roadmap) for details.
-For now, build from source.
-See the [Build instructions](#build-instructions) section below.
 
 ## Build requirements
 You need the following dependencies installed on your system:
